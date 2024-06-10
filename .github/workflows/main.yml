@@ -1,0 +1,94 @@
+name: CI/CD Pipeline
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set Docker timeout
+      run: |
+        export DOCKER_CLIENT_TIMEOUT=300
+        export COMPOSE_HTTP_TIMEOUT=300
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Build Docker image
+      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nginx:latest .
+
+    - name: Push Docker image
+      run: docker push ${{ secrets.DOCKER_USERNAME }}/nginx:latest
+
+    - name: Set image tag output
+      run: echo "IMAGE_TAG=${{ secrets.DOCKER_USERNAME }}/nginx:latest" >> $GITHUB_ENV
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+
+    - name: Set up GCP credentials
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_KEY_JSON }}
+
+    - name: Install gcloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        version: 'latest'
+
+    - name: Install gke-gcloud-auth-plugin
+      run: |
+        gcloud components install gke-gcloud-auth-plugin --quiet
+        gcloud components update --quiet
+
+    - name: Configure kubectl
+      run: |
+        gcloud config set project modern-impulse-426005-e0 --quiet
+        gcloud container clusters get-credentials autopilot-cluster-1 --zone us-central1 --quiet
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: 'latest'
+
+    - name: Create Kubernetes Secret
+      run: |
+        kubectl create secret generic oauth2-secrets \
+          --namespace=example \
+          --from-literal=client-id=${{ secrets.OAUTH2_CLIENT_ID }} \
+          --from-literal=client-secret=${{ secrets.OAUTH2_CLIENT_SECRET }} \
+          --from-literal=cookie-secret=${{ secrets.OAUTH2_COOKIE_SECRET }} || \
+          kubectl delete secret oauth2-secrets -n example && \
+          kubectl create secret generic oauth2-secrets \
+          --namespace=example \
+          --from-literal=client-id=${{ secrets.OAUTH2_CLIENT_ID }} \
+          --from-literal=client-secret=${{ secrets.OAUTH2_CLIENT_SECRET }} \
+          --from-literal=cookie-secret=${{ secrets.OAUTH2_COOKIE_SECRET }}
+    - name: Apply Kubernetes manifests
+      env:
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+      run: |
+        kubectl apply -f k8s/nginx-ingress-clusterrole.yaml
+        kubectl apply -f k8s/nginx-ingress-clusterrolebinding.yaml
+        kubectl apply -f k8s/ingress-class.yaml
+        kubectl apply -f k8s/nginx-ingress-controller.yaml
+        kubectl apply -f k8s/nginx-configmap.yaml
+        kubectl apply -f k8s/nginx-deployment.yaml
+        kubectl apply -f k8s/nginx-service.yaml
+        kubectl apply -f k8s/nginx-ingress.yaml
+        kubectl apply -f k8s/oauth2-proxy.yaml
