@@ -1,10 +1,10 @@
 provider "kubernetes" {
-  config_path = var.kubeconfig
+  config_path = "~/.kube/config"
 }
 
 provider "helm" {
   kubernetes {
-    config_path = var.kubeconfig
+    config_path = "~/.kube/config"
   }
 }
 
@@ -17,6 +17,6 @@ resource "helm_release" "nginx_ingress" {
 
   set {
     name  = "controller.service.type"
-    value = "NodePort"
+    value = "LoadBalancer"
   }
 }

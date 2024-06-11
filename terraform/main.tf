@@ -86,7 +86,4 @@ module "nginx_ingress" {
   source             = "./modules/nginx-ingress"
   namespace          = var.namespace
   ingress_class_name = var.ingress_class_name
-
-  # Pass the kubeconfig from the selected cluster module to the nginx ingress module
-  kubeconfig = module.gke_cluster.kubeconfig
 }

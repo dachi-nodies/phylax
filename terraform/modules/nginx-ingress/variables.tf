@@ -9,8 +9,3 @@ variable "namespace" {
   type        = string
   default     = "default"
 }
-
-variable "kubeconfig" {
-  description = "Kubeconfig for the Kubernetes cluster"
-  type        = string
-}
