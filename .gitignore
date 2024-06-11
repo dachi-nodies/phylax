@@ -1,0 +1,27 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+crash.log
+*.tf.swp
+*.tfplan
+*.log
+
+# Ignore Terraform provider binaries
+*.zip
+*.tar.gz
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.DS_Store
+
+# OS-specific files
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
